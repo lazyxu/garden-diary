@@ -1,0 +1,12 @@
+.git
+.github
+.gitignore
+**/node_modules
+**/dist
+**/.DS_Store
+**/*.sqlite
+**/*.sqlite-shm
+**/*.sqlite-wal
+data
+backups
+web/.env*
