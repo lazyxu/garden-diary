@@ -205,7 +205,7 @@ for i in {1..50}; do
   if healthy garden-diary-app && healthy garden-diary-web; then ok=1;break;fi
   sleep 2
 done
-[[ "$ok" -eq 1 ]] || {compose ps || true;error "新版本未通过健康检查"; exit 1; }
+[[ "$ok" -eq 1 ]] || { compose ps || true; error "新版本未通过健康检查"; exit 1; }
 
 STAGE="complete"
 cp -f "$TEMP/garden-diary" "$BIN/garden-diary"
