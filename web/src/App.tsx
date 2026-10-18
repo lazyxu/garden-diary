@@ -14,7 +14,7 @@ import {
   CompareArrowsRounded, SearchRounded, CheckRounded
 } from '@mui/icons-material'
 import {
-  api, json, setCsrf, thumb, original, localDateTime, withLocalOffset, displayDate,
+  api, json, setCsrf, thumb, original, preview, localDateTime, withLocalOffset, displayDate,
   type Session, type User, type Member, type Plant, type PlantFields,
   type Species, type Entry, type EntryPage, type CalendarDay, type Photo
 } from './api'
@@ -354,7 +354,7 @@ function PhotoViewer({ photos, index, onClose }: { photos: Photo[]; index: numbe
     </Stack>
     <Stack direction="row" flex={1} alignItems="center" minHeight={0}>
       <IconButton sx={{ color: 'white' }} disabled={selected <= 0} onClick={() => setSelected(x => x - 1)} aria-label="上一张"><ChevronLeftRounded /></IconButton>
-      <Box sx={{ flex: 1, display: 'grid', placeItems: 'center', height: '100%', minWidth: 0 }}><Box component="img" src={original(photo.id)} alt={photo.name} sx={{ maxHeight: 'calc(100dvh - 120px)', maxWidth: '100%', objectFit: 'contain' }} /></Box>
+      <Box sx={{ flex: 1, display: 'grid', placeItems: 'center', height: '100%', minWidth: 0 }}><Box component="img" src={preview(photo.id)} alt={photo.name} sx={{ maxHeight: 'calc(100dvh - 120px)', maxWidth: '100%', objectFit: 'contain' }} /></Box>
       <IconButton sx={{ color: 'white' }} disabled={selected >= photos.length - 1} onClick={() => setSelected(x => x + 1)} aria-label="下一张"><ChevronRightRounded /></IconButton>
     </Stack>
     <Typography textAlign="center" sx={{ py: 1.5, fontSize: 12, opacity: .8 }}>{photo.name}</Typography>
@@ -468,7 +468,7 @@ function PlantPage({ plantId, notify }: { plantId: number; notify: Notify }) {
           </Select></FormControl>)}
         </Stack>
         <Grid container spacing={2} mt={.5}>{[left < 0 ? shots.length - 1 : left, right < 0 ? 0 : right].map((j, i) => <Grid item xs={6} key={i}>
-          <Box component="img" src={original(shots[j]?.photo.id || shots[0].photo.id)} alt={i === 0 ? '较早照片' : '较新照片'} sx={{ width: '100%', objectFit: 'contain', maxHeight: 460, borderRadius: 2, bgcolor: 'action.hover' }} />
+          <Box component="img" src={preview(shots[j]?.photo.id || shots[0].photo.id)} alt={i === 0 ? '较早照片' : '较新照片'} sx={{ width: '100%', objectFit: 'contain', maxHeight: 460, borderRadius: 2, bgcolor: 'action.hover' }} />
           <Typography color="text.secondary" variant="caption">{displayDate(shots[j]?.date || shots[0].date)}</Typography>
         </Grid>)}</Grid>
       </>}

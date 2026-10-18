@@ -49,7 +49,7 @@ type Session struct {
 
 func New(cfg Config) (*App,error) {
     if cfg.DataDir=="" {return nil,errors.New("GD_DATA_DIR is required")}
-    for _, sub:=range []string{"","originals","thumbs","tmp"} {
+    for _, sub:=range []string{"","originals","thumbs","previews","tmp"} {
         p:=filepath.Join(cfg.DataDir,sub)
         if err:=os.MkdirAll(p,0700);err!=nil{return nil,err}
     }

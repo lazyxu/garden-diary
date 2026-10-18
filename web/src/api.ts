@@ -34,6 +34,7 @@ export async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 export const json = (body: unknown, method = 'POST'): RequestInit => ({method, body: JSON.stringify(body)})
 export const thumb = (id: number) => '/api/v1/photos/' + id + '/thumb'
+export const preview = (id: number) => '/api/v1/photos/' + id + '/preview'
 export const original = (id: number) => '/api/v1/photos/' + id + '/original'
 export function localDateTime(date?: string) {
   const d = date ? new Date(date) : new Date()

@@ -115,6 +115,9 @@ func TestFamilyPlantsPhotoExport(t *testing.T){
     res=c.request(t,"GET","/api/v1/photos/"+fmtID(photoID)+"/thumb",nil,"",true)
     requireStatus(t,res,200)
     if !strings.HasPrefix(res.Header().Get("Content-Type"),"image/jpeg"){t.Fatal("missing thumbnail")}
+    res=c.request(t,"GET","/api/v1/photos/"+fmtID(photoID)+"/preview",nil,"",true)
+    requireStatus(t,res,200)
+    if !strings.HasPrefix(res.Header().Get("Content-Type"),"image/png"){t.Fatal("JPEG/PNG previews must use original type")}
     res=c.request(t,"GET","/api/v1/calendar/day?date=2026-10-18",nil,"",true)
     requireStatus(t,res,200)
     if !strings.Contains(res.Body.String(),"阳台月季"){t.Fatal("calendar day missing record")}

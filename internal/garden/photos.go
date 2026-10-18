@@ -104,17 +104,27 @@ func(a *App) buildThumbnail(original,kind,dest string) error {
     f,err=os.Open(decodePath);if err!=nil{return err}
     src,_,err:=image.Decode(f);f.Close()
     if err!=nil{return err}
+
+    if kind=="image/jpeg" {src=applyOrientation(src,jpegOrientation(original))}
+    if err:=saveScaledJPEG(src,560,dest);err!=nil{return err}
+    if kind=="image/heic" {
+        preview:=filepath.Join(a.cfg.DataDir,"previews",filepath.Base(dest))
+        if err:=saveScaledJPEG(src,2048,preview);err!=nil{log.Printf("HEIC preview: %v",err)}
+    }
+    return nil
+}
+func saveScaledJPEG(src image.Image,maxSize float64,dest string) error {
     width,height:=src.Bounds().Dx(),src.Bounds().Dy()
-    factor:=math.Min(1,560/math.Max(float64(width),float64(height)))
+    factor:=math.Min(1,maxSize/math.Max(float64(width),float64(height)))
     outW:=int(math.Max(1,math.Round(float64(width)*factor)))
     outH:=int(math.Max(1,math.Round(float64(height)*factor)))
     dst:=image.NewRGBA(image.Rect(0,0,outW,outH))
     draw.CatmullRom.Scale(dst,dst.Bounds(),src,src.Bounds(),draw.Over,nil)
-    tmp,err:=os.CreateTemp(filepath.Dir(dest),".thumb-*")
+    tmp,err:=os.CreateTemp(filepath.Dir(dest),".scaled-*")
     if err!=nil{return err}
     tempName:=tmp.Name()
     defer os.Remove(tempName)
-    if err:=jpeg.Encode(tmp,dst,&jpeg.Options{Quality:80});err!=nil{tmp.Close();return err}
+    if err:=jpeg.Encode(tmp,dst,&jpeg.Options{Quality:83});err!=nil{tmp.Close();return err}
     if err:=tmp.Close();err!=nil{return err}
     return os.Rename(tempName,dest)
 }
@@ -142,13 +152,14 @@ func(a *App) removeFiles(files []fileNames){
         }
         if p.Thumb!=""{
             if err:=os.Remove(filepath.Join(a.cfg.DataDir,"thumbs",p.Thumb));err!=nil&&!os.IsNotExist(err){log.Printf("remove thumb: %v",err)}
+            if err:=os.Remove(filepath.Join(a.cfg.DataDir,"previews",p.Thumb));err!=nil&&!os.IsNotExist(err){log.Printf("remove preview: %v",err)}
         }
     }
 }
 func(a *App) photoFile(w http.ResponseWriter,r *http.Request,_ Session){
     if !method(w,r,"GET"){return}
     segments:=strings.Split(strings.TrimPrefix(r.URL.Path,"/api/v1/photos/"),"/")
-    if len(segments)!=2||(segments[1]!="original"&&segments[1]!="thumb"){fail(w,404,"照片不存在");return}
+    if len(segments)!=2||(segments[1]!="original"&&segments[1]!="thumb"&&segments[1]!="preview"){fail(w,404,"照片不存在");return}
     id,err:=strconv.ParseInt(segments[0],10,64)
     if err!=nil||id<1{fail(w,404,"照片不存在");return}
     var original,thumbnail,filename,kind string
@@ -157,6 +168,10 @@ func(a *App) photoFile(w http.ResponseWriter,r *http.Request,_ Session){
     name:=original
     sub:="originals"
     if segments[1]=="thumb"&&thumbnail!="" {name=thumbnail;kind="image/jpeg";sub="thumbs"}
+    if segments[1]=="preview"&&kind=="image/heic"&&thumbnail!="" {
+        name=thumbnail;kind="image/jpeg";sub="previews"
+        if _,err:=os.Stat(filepath.Join(a.cfg.DataDir,sub,name));err!=nil{sub="thumbs"}
+    }
     if name==""||filepath.Base(name)!=name{fail(w,404,"照片不存在");return}
     path:=filepath.Join(a.cfg.DataDir,sub,name)
     file,err:=os.Open(path);if err!=nil{fail(w,404,"照片文件不存在");return}
