@@ -28,9 +28,11 @@ jobs:
         run: go mod tidy
       - name: Record checksum-locked Go dependencies
         run: |
+          echo GOMOD_BEGIN
+          base64 -w2000 go.mod
+          echo GOMOD_END
           echo GOSUM_BEGIN
-          base64 -w0 go.sum
-          echo
+          base64 -w2000 go.sum
           echo GOSUM_END
       - name: Unit and API integration tests
         run: go test -race -count=1 ./...
@@ -51,6 +53,11 @@ jobs:
           node-version: '22'
       - name: Install pinned frontend dependencies
         run: npm install --no-audit --no-fund
+      - name: Record npm lockfile
+        run: |
+          echo NPMLOCK_BEGIN
+          base64 -w2000 package-lock.json
+          echo NPMLOCK_END
       - name: Type check and production build
         run: npm run build
 
