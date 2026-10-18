@@ -1,0 +1,68 @@
+name: garden-diary
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  app:
+    container_name: garden-diary-app
+    image: ${GD_APP_IMAGE:-ghcr.io/lazyxu/garden-diary-api:latest}
+    user: "${GD_UID:-1000}:${GD_GID:-1000}"
+    environment:
+      GD_LISTEN: ":8080"
+      GD_DATA_DIR: /data
+      GD_SETUP_TOKEN: ${GD_SETUP_TOKEN:?set GD_SETUP_TOKEN in .env}
+      GD_COOKIE_SECURE: "false"
+    volumes:
+      - "${GD_DATA_DIR:-../data/app}:/data"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/garden-diary", "healthcheck"]
+      interval: 10s
+      timeout: 4s
+      retries: 8
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    logging: *default-logging
+
+  web:
+    container_name: garden-diary-web
+    image: ${GD_WEB_IMAGE:-ghcr.io/lazyxu/garden-diary-web:latest}
+    ports:
+      - "${GD_HTTP_BIND:-0.0.0.0}:${GD_HTTP_PORT:-3018}:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/api/v1/health"]
+      interval: 10s
+      timeout: 4s
+      retries: 8
+      start_period: 10s
+    restart: unless-stopped
+    logging: *default-logging
+
+  web-https:
+    profiles: ["https"]
+    container_name: garden-diary-web-https
+    image: ${GD_WEB_IMAGE:-ghcr.io/lazyxu/garden-diary-web:latest}
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.https", "--adapter", "caddyfile"]
+    environment:
+      GD_DOMAIN: ${GD_DOMAIN:-example.invalid}
+    ports:
+      - "${GD_HTTPS_HTTP_PORT:-80}:80"
+      - "${GD_HTTPS_PORT:-443}:443"
+    volumes:
+      - "${GD_CADDY_DATA_DIR:-../data/caddy/data}:/data"
+      - "${GD_CADDY_CONFIG_DIR:-../data/caddy/config}:/config"
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging

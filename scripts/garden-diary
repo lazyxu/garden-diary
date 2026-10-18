@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+ROOT="${GD_HOME:-$HOME/.garden-diary}"
+CONFIG="$ROOT/config"
+ENV="$CONFIG/.env"
+COMPOSE="$CONFIG/docker-compose.yml"
+BACKUPS="$ROOT/backups"
+mkdir -p "$BACKUPS/snapshots" "$BACKUPS/pre-restore"
+
+need_install() {
+  [[ -f "$ENV" && -f "$COMPOSE" ]] || { echo "未安装花园日记，请先运行 deploy/install.sh" >&2; exit 1; }
+}
+compose() { docker compose --env-file "$ENV" -f "$COMPOSE" "$@"; }
+setting() { grep -m1 "^$1=" "$ENV" 2>/dev/null | cut -d= -f2- || true; }
+change_setting() {
+  local key="$1" value="$2" next
+  next="$(mktemp "$CONFIG/.env.XXXXXX")"
+  awk -v key="$key" 'index($0,key"=")!=1{print}' "$ENV" > "$next"
+  printf '%s=%s\n' "$key" "$value" >> "$next"
+  chmod 600 "$next"
+  mv -f "$next" "$ENV"
+}
+data_dir() {
+  local value
+  value="$(setting GD_DATA_DIR)"
+  [[ -n "$value" && "$value" == /* && "$value" != "/" && "$value" != "$HOME" && "$value" != "$ROOT" ]] || {
+    echo "不安全或缺失的 GD_DATA_DIR: $value" >&2; exit 1;
+  }
+  printf '%s\n' "$value"
+}
+stop_app() { compose stop app >/dev/null; }
+start_app() { compose up -d app >/dev/null; }
+snapshot() {
+  need_install
+  local folder="$1" target tmp data running
+  data="$(data_dir)"
+  [[ -d "$data" ]] || { echo "数据目录不存在: $data" >&2; exit 1; }
+  mkdir -p "$folder"
+  target="$folder/garden-diary-$(date -u +%Y%m%dT%H%M%SZ)-$$.tar.gz"
+  tmp="$target.tmp"
+  running="$(docker inspect -f '{{.State.Running}}' garden-diary-app 2>/dev/null || true)"
+  if [[ "$running" == "true" ]]; then stop_app; fi
+  if ! tar -C "$data" -czf "$tmp" . || ! tar -tzf "$tmp" >/dev/null; then
+    rm -f "$tmp"
+    if [[ "$running" == "true" ]]; then start_app || true; fi
+    echo "备份失败" >&2; exit 1
+  fi
+  mv -f "$tmp" "$target"
+  if [[ "$running" == "true" ]]; then start_app; fi
+  echo "备份已完成：$target"
+}
+clear_data_dir() {
+  local data="$1"
+  [[ "$data" == /* && "$data" != "/" && "$data" != "$HOME" && "$data" != "$ROOT" ]] || return 1
+  [[ -d "$data" ]] || return 1
+  find "$data" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+}
+restore_data() {
+  local input="$1" data="$2"
+  tar -tzf "$input" >/dev/null
+  # Refuse absolute paths, parent traversal, and non-relative members.
+  if tar -tzf "$input" | grep -Eq '(^/|(^|/)\.\.(/|$$))'; then echo "备份归档包含不安全的路径" >&2; return 1; fi
+  clear_data_dir "$data"
+  tar -C "$data" -xzf "$input" --no-same-owner --no-same-permissions
+}
+restore() {
+  need_install
+  local archive="${1:-}" yes="${2:-}" data before
+  [[ -f "$archive" && "$yes" == "--yes" ]] || { echo "用法: garden-diary restore BACKUP.tar.gz --yes" >&2; exit 2; }
+  data="$(data_dir)"
+  before="$(snapshot "$BACKUPS/pre-restore" | sed -n 's/^备份已完成：//p')"
+  [[ -f "$before" ]] || { echo "创建恢复前备份失败" >&2; exit 1; }
+  compose stop app web web-https >/dev/null 2>&1 || true
+  if ! restore_data "$archive" "$data"; then
+    echo "恢复失败，尝试恢复操作前的快照" >&2
+    restore_data "$before" "$data" || true
+    compose up -d app web
+    return 1
+  fi
+  compose up -d app web
+  if [[ -n "$(setting GD_DOMAIN)" ]]; then compose --profile https up -d web-https; fi
+  echo "数据已从备份恢复：$archive"
+}
+doctor() {
+  need_install
+  echo "花园日记系统检查"
+  echo "安装位置: $ROOT"
+  echo "发布渠道: $(setting GD_CHANNEL)"
+  echo "发布版本: $(setting GD_REF)"
+  echo "数据目录: $(data_dir)"
+  echo "用户 UID/GID: $(setting GD_UID)/$(setting GD_GID)"
+  docker info --format 'Docker: {{.ServerVersion}}' || return 1
+  docker compose --env-file "$ENV" -f "$COMPOSE" config --quiet
+  df -h "$(data_dir)" | tail -n 1
+  compose ps
+}
+update() {
+  need_install
+  local installer="$ROOT/bin/install.sh"
+  [[ -f "$installer" ]] || { echo "缺少安装器：$installer" >&2; exit 1; }
+  bash "$installer" --channel "$(setting GD_CHANNEL)" "$@"
+}
+https_enable() {
+  need_install
+  local domain="${1:-}"
+  if [[ ! "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$ || "$domain" != *.* ]]; then
+    echo "用法: garden-diary enable-https your.domain.example" >&2; exit 2
+  fi
+  change_setting GD_DOMAIN "$domain"
+  compose --profile https up -d web-https
+  echo "已开启域名 HTTPS: https://$domain（请先确保 DNS 与端口转发正确）"
+}
+https_disable() {
+  need_install
+  compose --profile https stop web-https >/dev/null 2>&1 || true
+  compose --profile https rm -f web-https >/dev/null 2>&1 || true
+  change_setting GD_DOMAIN ""
+  echo "已停止域名 HTTPS 服务；局域网 HTTP 保持可用"
+}
+uninstall() {
+  need_install
+  local purge=0 confirm=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      --purge-data)purge=1;;
+      --yes)confirm=1;;
+      *)echo "不支持的参数: $arg" >&2;exit 2;;
+    esac
+  done
+  [[ "$confirm" -eq 1 ]] || { echo "卸载需要明确 --yes，默认保留所有数据" >&2; exit 2; }
+  local data
+  data="$(data_dir)"
+  compose --profile https down
+  if [[ "$purge" -eq 1 ]]; then
+    echo "正在删除应用数据（备份仍会保留）: $data"
+    clear_data_dir "$data"
+  else
+    echo "容器已移除，配置/数据/备份均已保留：$ROOT"
+  fi
+}
+command="${1:-help}"
+shift || true
+case "$command" in
+  update) update "$@";;
+  backup) snapshot "$BACKUPS/snapshots";;
+  restore) restore "$@";;
+  status) need_install; echo "发布渠道: $(setting GD_CHANNEL) / $(setting GD_REF)"; compose ps;;
+  logs) need_install; compose logs --tail=150 -f "$@";;
+  doctor) doctor;;
+  enable-https) https_enable "$@";;
+  disable-https) https_disable;;
+  uninstall) uninstall "$@";;
+  help|--help|-h)
+    cat <<'HELP'
+花园日记 · 服务器管理
+  garden-diary status
+  garden-diary doctor
+  garden-diary logs [app|web]
+  garden-diary update [--channel master|stable]
+  garden-diary backup
+  garden-diary restore BACKUP.tar.gz --yes
+  garden-diary enable-https example.com
+  garden-diary disable-https
+  garden-diary uninstall --yes [--purge-data]
+HELP
+    ;;
+  *) echo "未知命令: $command（使用 garden-diary help）" >&2;exit 2;;
+esac

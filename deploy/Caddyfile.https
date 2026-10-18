@@ -1,0 +1,13 @@
+{$GD_DOMAIN} {
+    encode zstd gzip
+    header X-Content-Type-Options "nosniff"
+    header X-Frame-Options "DENY"
+    handle /api/* {
+        reverse_proxy app:8080
+    }
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}
