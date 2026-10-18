@@ -23,7 +23,7 @@
 
 ## 安装：Linux + Docker Compose
 
-需要 Linux amd64/arm64、Docker Engine、Docker Compose v2、`curl`、`tar`、`flock`。请先确认当前用户可以执行 $docker info$。
+需要 Linux amd64/arm64、Docker Engine、Docker Compose v2、`curl`、`tar`、`flock`。请先确认当前用户可以执行 `docker info`。
 
 **首次安装（master 渠道）：**下载完整脚本到本地后运行，勿直接把 curl 管道传给 bash。
 
@@ -34,9 +34,9 @@
     rm -f "$tmp"
     exit "$rc"
 
-稳定版渠道在项目发布首个 `vX.Y.Z` Release 后启用，运行 $bash install.sh --channel stable$。安装器根据提交 SHA 或正式标签拉取对应 CI 构建的 GHCR 镜像。
+稳定版渠道在项目发布首个 `vX.Y.Z` Release 后启用，运行 `bash install.sh --channel stable`。安装器根据提交 SHA 或正式标签拉取对应 CI 构建的 GHCR 镜像。
 
-默认访问：$http://服务器IP:3018$。第一次打开时，需要用安装器显示的 **GD_SETUP_TOKEN** 在网页创建首位管理员；口令也保存在宿主机 `~/.garden-diary/config/.env`（权限 0600）中，请勿公开。由管理员在“家庭”中给家人创建账号。
+默认访问：`http://服务器IP:3018`。第一次打开时，需要用安装器显示的 **GD_SETUP_TOKEN** 在网页创建首位管理员；口令也保存在宿主机 `~/.garden-diary/config/.env`（权限 0600）中，请勿公开。由管理员在“家庭”中给家人创建账号。
 
 安装目录：
 
@@ -68,7 +68,7 @@
     ~/.garden-diary/bin/garden-diary uninstall --yes
     ~/.garden-diary/bin/garden-diary uninstall --purge-data --yes
 
-升级时先暂停 SQLite 写入，生成数据库与原图的一致性 tar.gz 快照；拉取固定提交/tag 的镜像并重建容器，待 API 和 Web 健康检查通过后才视为成功。失败时恢复旧配置、旧镜像和旧数据。快照存放在 `backups/pre-upgrade`，**不会随容器重建丢失**。正常卸载保留数据；清除数据必须显式传 $--purge-data --yes$。定期把备份复制到其他存储设备。
+升级时先暂停 SQLite 写入，生成数据库与原图的一致性 tar.gz 快照；拉取固定提交/tag 的镜像并重建容器，待 API 和 Web 健康检查通过后才视为成功。失败时恢复旧配置、旧镜像和旧数据。快照存放在 `backups/pre-upgrade`，**不会随容器重建丢失**。正常卸载保留数据；清除数据必须显式传 `--purge-data --yes`。定期把备份复制到其他存储设备。
 
 手动备份与恢复期间 API 会短暂不可用。ZIP 导出提供可迁移的原图和 JSON 清单，但不是直接可恢复的 SQLite 快照。
 
@@ -97,7 +97,7 @@ Caddy 默认通过公网 80/443 验证并签发 HTTPS 证书。也可以修改 `
     npm install
     npm run dev
 
-Vite 将 `/api/*` 转发到 $http://127.0.0.1:8080$。访问 $http://localhost:5173$。测试命令：
+Vite 将 `/api/*` 转发到 `http://127.0.0.1:8080`。访问 `http://localhost:5173`。测试命令：
 
     go test ./...
     go vet ./...

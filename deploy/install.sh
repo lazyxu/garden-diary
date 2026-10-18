@@ -108,18 +108,18 @@ TEMP="$(mktemp -d "$STATE/install.XXXXXX")"
 
 [[ -n "$CHANNEL" ]] || CHANNEL="$(getenv GD_CHANNEL)"
 CHANNEL="${CHANNEL:-master}"
-[[ "$CHANNEL" == "master" || "$CHANNEL" == "stable" ]] || {error "仅支持 master 或 stable 渠道";exit 2;}
+[[ "$CHANNEL" == "master" || "$CHANNEL" == "stable" ]] || { error "仅支持 master 或 stable 渠道"; exit 2; }
 
 STAGE="resolve-release"
 if [[ "$CHANNEL" == "master" ]]; then
   response="$(curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 "https://api.github.com/repos/$REPOSITORY/commits/master")"
   REF="$(printf '%s\n' "$response" | sed -nE 's/^[[:space:]]*"sha":[[:space:]]*"([a-f0-9]{40})".*/\1/p' | head -n1)"
-  [[ "$REF" =~ ^[a-f0-9]{40}$ ]] || {error "无法解析 master 的完整 commit SHA";exit 1;}
+  [[ "$REF" =~ ^[a-f0-9]{40}$ ]] || { error "无法解析 master 的完整 commit SHA"; exit 1; }
   TAG="sha-${REF:0:12}"
 else
   response="$(curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 "https://api.github.com/repos/$REPOSITORY/releases/latest")"
   REF="$(printf '%s\n' "$response" | sed -nE 's/^[[:space:]]*"tag_name":[[:space:]]*"([^"]+)".*/\1/p' | head -n1)"
-  [[ "$REF" =~ ^v[0-9]+[.][0-9]+[.][0-9]+([-+._a-zA-Z0-9]*)?$ ]] || {error "没有找到有效的稳定版发布";exit 1;}
+  [[ "$REF" =~ ^v[0-9]+[.][0-9]+[.][0-9]+([-+._a-zA-Z0-9]*)?$ ]] || { error "没有找到有效的稳定版发布"; exit 1; }
   TAG="$REF"
 fi
 log "目标版本：$CHANNEL / $REF"
@@ -205,7 +205,7 @@ for i in {1..50}; do
   if healthy garden-diary-app && healthy garden-diary-web; then ok=1;break;fi
   sleep 2
 done
-[[ "$ok" -eq 1 ]] || {compose ps || true;error "新版本未通过健康检查";exit 1;}
+[[ "$ok" -eq 1 ]] || {compose ps || true;error "新版本未通过健康检查"; exit 1; }
 
 STAGE="complete"
 cp -f "$TEMP/garden-diary" "$BIN/garden-diary"

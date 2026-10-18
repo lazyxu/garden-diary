@@ -373,8 +373,8 @@ function PlantPage({ plantId, notify }: { plantId: number; notify: Notify }) {
   const [entryOpen, setEntryOpen] = useState(false)
   const [editing, setEditing] = useState<Entry | null>(null)
   const [viewer, setViewer] = useState<number | null>(null)
-  const [left, setLeft] = useState(0)
-  const [right, setRight] = useState(0)
+  const [left, setLeft] = useState(-1)
+  const [right, setRight] = useState(-1)
   const load = useCallback(async () => {
     try {
       const [p, page, sp] = await Promise.all([api<Plant>('/plants/' + plantId), api<EntryPage>('/entries?plant_id=' + plantId + '&limit=50'), api<Species[]>('/species')])
@@ -463,11 +463,11 @@ function PlantPage({ plantId, notify }: { plantId: number; notify: Notify }) {
       <Typography color="text.secondary" mb={2}>选择两张不同日期的照片，直观比较成长变化。</Typography>
       {shots.length < 2 ? <Alert severity="info">至少需要两张成长照片才可以对比。</Alert> : <>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          {[left, right].map((value, i) => <FormControl fullWidth key={i}><InputLabel>{i === 0 ? '较早的照片' : '较新的照片'}</InputLabel><Select value={value || (i === 0 ? shots.length - 1 : 1)} label={i === 0 ? '较早的照片' : '较新的照片'} onChange={e => i === 0 ? setLeft(Number(e.target.value)) : setRight(Number(e.target.value))}>
+          {[left, right].map((value, i) => <FormControl fullWidth key={i}><InputLabel>{i === 0 ? '较早的照片' : '较新的照片'}</InputLabel><Select value={value < 0 ? (i === 0 ? shots.length - 1 : 0) : value} label={i === 0 ? '较早的照片' : '较新的照片'} onChange={e => i === 0 ? setLeft(Number(e.target.value)) : setRight(Number(e.target.value))}>
             {shots.map((s, j) => <MenuItem key={s.photo.id} value={j}>{displayDate(s.date)} · {s.photo.name}</MenuItem>)}
           </Select></FormControl>)}
         </Stack>
-        <Grid container spacing={2} mt={.5}>{[left || shots.length - 1, right || 1].map((j, i) => <Grid item xs={6} key={i}>
+        <Grid container spacing={2} mt={.5}>{[left < 0 ? shots.length - 1 : left, right < 0 ? 0 : right].map((j, i) => <Grid item xs={6} key={i}>
           <Box component="img" src={original(shots[j]?.photo.id || shots[0].photo.id)} alt={i === 0 ? '较早照片' : '较新照片'} sx={{ width: '100%', objectFit: 'contain', maxHeight: 460, borderRadius: 2, bgcolor: 'action.hover' }} />
           <Typography color="text.secondary" variant="caption">{displayDate(shots[j]?.date || shots[0].date)}</Typography>
         </Grid>)}</Grid>
