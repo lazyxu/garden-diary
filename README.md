@@ -16,7 +16,7 @@
 
 ## 架构
 
-- API: Go 1.23、标准库 HTTP、modernc SQLite 驱动（纯 Go）、bcrypt、服务器端会话 Cookie 和 CSRF 防护。
+- API: Go 1.26、标准库 HTTP、modernc SQLite 驱动（纯 Go）、bcrypt、服务器端会话 Cookie 和 CSRF 防护。
 - Web: React 18 + TypeScript + MUI + Vite，Caddy 承载静态资源与 API 反向代理。
 - 存储：`~/.garden-diary/data/app/garden.sqlite`、`originals/`、`thumbs/`。
 - 部署：两个 Docker 容器（API 和 Web），可选第三个独立 HTTPS Caddy 服务；不暴露 Docker socket 给应用容器。
